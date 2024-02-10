@@ -4,9 +4,9 @@ from q_value_model import QValueModel
 
 
 class Policy:
-    def __init__(self, epsilon, q_value_model, action_space=[0, 1], train_mode=True):
+    def __init__(self, q_value, train_mode=True, epsilon=None, action_space=[0, 1]):
         self.epsilon = epsilon
-        self.q_value: QValueModel = q_value_model
+        self.q_value: QValueModel = q_value
         self.action_space: list = action_space
         self.train_mode = train_mode
         

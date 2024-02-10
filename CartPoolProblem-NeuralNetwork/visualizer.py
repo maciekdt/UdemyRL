@@ -12,7 +12,7 @@ class Visualizer:
         with open(cache_file_path, 'rb') as file:
             q_value_model: QValueModel = pickle.load(file)
             print("Q-value model loaded from memory")
-            policy = Policy(epsilon=0.2, q_value_model=q_value_model)
+            policy = Policy(q_value=q_value_model, train_mode=False)
             
             s = self.env.reset()[0]
             done = False
@@ -25,7 +25,6 @@ class Visualizer:
                     done = True
             return cum_r
                 
-
 vis = Visualizer()
-cum_r = vis.start("q_cache.pkl")
+cum_r = vis.start("model.pkl")
 print("Cumulative reward:", cum_r)

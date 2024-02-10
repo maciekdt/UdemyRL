@@ -14,9 +14,6 @@ class QValueModel:
         self.rbf_beta = .1
         self.normalizator = MinMaxScaler()
         
-        #print("w:", self.w)
-        #print("rbf centers::", self.rbf_centers)
-        
         
     def update(self, state, action, reward, next_state):
         max_Q = float('-inf')
@@ -37,12 +34,10 @@ class QValueModel:
     def rbf_feature_transform(self, state, action):
         action_state = np.append(state, action)
         action_state = self.normalizator.transform(action_state)
-        #print("normalized_action_state:", action_state)
         action_state = np.expand_dims(action_state, axis=0)
         distances = cdist(action_state, self.rbf_centers, 'euclidean')
         transformed_features = np.exp(-self.rbf_beta * distances**2)
         transformed_features = np.squeeze(transformed_features)
-        #print("transformed_features:", transformed_features)
         return transformed_features
     
 
