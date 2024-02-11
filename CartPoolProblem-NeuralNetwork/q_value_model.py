@@ -31,62 +31,60 @@ class QValueModel:
         self.nn_model = nn_model
         self.optimizer = optim.Adam(nn_model.parameters(), lr=alpha_rate)
         self.criterion = nn.MSELoss()
-        self.normalizator = MinMaxScaler()
+ 
+    
+    def get_G(self, reward:float, next_state:list):
+        with torch.no_grad():
+            max_Q = float('-inf')
+            for a in self.action_space:
+                Q = self.nn_model(self.feature_transform(next_state, a)).item()
+                if Q > max_Q: max_Q = Q
+            return reward + self.gamma * max_Q
+            
         
-        
-    def update(self, state, action, reward, next_state):
-        max_Q = float('-inf')
-        for a in self.action_space:
-            Q = self.predict_Q(next_state, a)
-            if Q > max_Q: max_Q = Q
-                
-        G = reward + self.gamma * max_Q
-        G = torch.tensor([[G]], dtype=torch.float32)
-
+    
+    def batch_update(self, batch_state_action:list, batch_G:list):
+        batch_state_action = torch.tensor(batch_state_action, dtype=torch.float32)
+        batch_G = torch.tensor(batch_G, dtype=torch.float32)
         self.optimizer.zero_grad()
-        Q = self.nn_model(self.feature_transform(state, action))
-        loss = self.criterion(Q, G)
-        
+        pred_Q = self.nn_model(batch_state_action)
+        loss = self.criterion(pred_Q, batch_G)
         loss.backward()
         self.optimizer.step()
         return loss.item()
-        
     
-    def predict_Q(self, state, action):
-        action_state = self.feature_transform(state, action)
-        Q = self.nn_model(action_state).item()
-        return Q
+    def predict_Q(self, state:list, action:float):
+        with torch.no_grad():
+            action_state = self.feature_transform(state, action)
+            Q = self.nn_model(action_state).item()
+            return Q
+            
         
-        
-    def feature_transform(self, state, action):
-        action_state = np.append(state, action)
-        action_state = self.normalizator.transform(action_state)
-        action_state = action_state.astype(np.float32)
-        action_state = torch.from_numpy(action_state)
+    def feature_transform(self, state:list, action:float):
+        action_state = state.copy()
+        action_state.append(action)
+        action_state = torch.tensor(action_state, dtype=torch.float32)
         action_state = action_state.unsqueeze(0)
         return action_state
 
+def test():
+    q = QValueModel(alpha_rate=.1, gamma=.99)
+    s1 = [1,2,3,4]
+    s2 = [4,3,2,1]
+    a = 1
 
-class MinMaxScaler:
-    def __init__(self, max_velocity=5.):
-        self.min_values = np.array([-4.8, -max_velocity, -0.418, -max_velocity, 0])
-        self.max_values = np.array([4.8, max_velocity, 0.418, max_velocity, 1])
-        
-    def transform(self, X):
-        return (X - self.min_values) / (self.max_values - self.min_values)
+    print("Q-value for s1:", q.predict_Q(state=s1, action=a))
+    print("Q-value for s2:", q.predict_Q(state=s1, action=a))
+    print("G for s1 (Q-value + r=10):", q.get_G(reward=10., next_state=s1))
+    print("G for s2 (Q-value + r=-5):", q.get_G(reward=-5., next_state=s2))
 
-    
-    
-"""    
-q = QValueModel(alpha_rate=.1, gamma=.9)
-state = np.array([3.3, -3.2, 0.04, 2.3])
-action = 0
-print("Pred Q-value:", q.predict_Q(state=state, action=action))
+    batch_s = [[[1,2,3,4,1], [4,3,2,1,1]]]
+    batch_G = [[[100], [-100]]]
 
-reward = 50
-next_state = np.array([2.3, -1.2, 0.12, 1.3])
-print("Update Loss:", q.update(state=state, action=action, reward=reward, next_state=state))
-print("Update Loss:", q.update(state=state, action=action, reward=reward, next_state=state))
+    for i in range(1000):
+        q.batch_update(batch_state_action=batch_s, batch_G=batch_G)
 
-print("Updated Pred Q-value:", q.predict_Q(state=state, action=action))
-"""
+
+    print("Q-value for s1:", q.predict_Q(state=s1, action=a))
+    print("Q-value for s2:", q.predict_Q(state=s2, action=a))
+
